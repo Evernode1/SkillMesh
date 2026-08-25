@@ -10,6 +10,8 @@ class Certification:
     skill: str
     holder: Address
     evidence: str
+    proof_url: str
+    proof_fetched: bool
     verdict: str          # "certified" | "not_certified"
     confidence: u256
     reasoning: str
@@ -22,6 +24,8 @@ class Certification:
             "skill": self.skill,
             "holder": self.holder.as_hex,
             "evidence": self.evidence,
+            "proof_url": self.proof_url,
+            "proof_fetched": str(self.proof_fetched),
             "verdict": self.verdict,
             "confidence": str(self.confidence),
             "reasoning": self.reasoning,
@@ -69,23 +73,32 @@ class CertifierOracle(gl.Contract):
         self.owner = Address(new_owner)
 
     @gl.public.write
-    def request_certification(self, skill: str, evidence: str, created_at: int):
+    def request_certification(self, skill: str, evidence: str, proof_url: str, created_at: int):
         """
         Anyone can request certification for a skill by submitting evidence of
         their competency. AI validators independently judge whether the
         evidence demonstrates real competency.
+
+        `proof_url` is optional but strongly recommended: a link to a repo,
+        live demo, published article, portfolio page, etc. When present, the
+        validators independently fetch that page themselves (it is NOT
+        supplied by the candidate as text) and weigh it heavily — this is
+        real, hard-to-fake proof, as opposed to a bare self-reported claim.
         """
         if self.paused:
             raise Exception("Certification requests are currently paused")
 
         clean_skill = skill.strip().lower()
         clean_evidence = evidence.strip()
+        clean_proof_url = proof_url.strip()
         if not clean_skill:
             raise Exception("Skill name must not be empty")
         if not clean_evidence:
             raise Exception("Evidence must not be empty")
         if len(clean_evidence) > 4000:
             raise Exception("Evidence too long (max 4000 characters)")
+        if len(clean_proof_url) > 500:
+            raise Exception("Proof URL too long (max 500 characters)")
 
         holder = gl.message.sender_address
         key = f"{holder.as_hex.lower()}:{clean_skill}"
@@ -98,7 +111,7 @@ class CertifierOracle(gl.Contract):
                     f"Please wait before re-attempting this skill (cooldown: {self.min_reattempt_seconds}s)"
                 )
 
-        result = self._judge(clean_skill, clean_evidence)
+        result = self._judge(clean_skill, clean_evidence, clean_proof_url)
 
         attempt_count = u256((existing.attempt_count if existing is not None else u256(0)) + 1)
 
@@ -106,6 +119,8 @@ class CertifierOracle(gl.Contract):
             skill=clean_skill,
             holder=holder,
             evidence=clean_evidence,
+            proof_url=clean_proof_url,
+            proof_fetched=bool(result.get("_proof_fetched", False)),
             verdict=result["verdict"],
             confidence=u256(int(result["confidence"])),
             reasoning=result["reasoning"],
@@ -122,22 +137,64 @@ class CertifierOracle(gl.Contract):
         if clean_skill not in list(skills):
             skills.append(clean_skill)
 
-    def _judge(self, skill: str, evidence: str) -> dict:
+    def _judge(self, skill: str, evidence: str, proof_url: str) -> dict:
         def leader_fn():
+            proof_content = ""
+            proof_fetched = False
+            if proof_url and (proof_url.startswith("http://") or proof_url.startswith("https://")):
+                try:
+                    fetched = gl.nondet.web.render(proof_url, mode="text")
+                    proof_content = str(fetched)[:6000]
+                    proof_fetched = True
+                except Exception as e:
+                    proof_content = f"(could not fetch this URL: {str(e)[:200]})"
+                    proof_fetched = False
+            elif proof_url:
+                proof_content = "(not a fetchable http(s) link — treat as an unverified reference only)"
+
+            if proof_fetched:
+                proof_instruction = (
+                    "A proof URL was supplied and its live content is shown below, fetched "
+                    "independently by the validator — the candidate did not type this part. "
+                    "This is real evidence: weigh it heavily. If the fetched page contradicts, "
+                    "fails to support, or is unrelated to the skill/evidence claimed, that is a "
+                    "strong signal to reject, regardless of how well-written the evidence text is."
+                )
+            elif proof_url:
+                proof_instruction = (
+                    "A proof URL was supplied but could not be independently verified (either it "
+                    "wasn't a fetchable link, or the fetch failed). Treat the submission as "
+                    "self-reported evidence only, and hold it to a stricter bar."
+                )
+            else:
+                proof_instruction = (
+                    "No proof URL was supplied. This submission is self-reported text only, with "
+                    "nothing independently verifiable. Hold it to a stricter bar than a submission "
+                    "backed by a working link: vague or generic claims must fail, and even "
+                    "detailed-sounding claims should not receive top confidence without any way to "
+                    "check them."
+                )
+
             prompt = f"""You are an impartial skill-certification examiner on a decentralized credentialing network. Multiple independent validators will judge this same submission and must reach consensus.
 
 SKILL BEING CLAIMED: "{skill}"
 
-CANDIDATE'S EVIDENCE OF COMPETENCY:
+CANDIDATE'S EVIDENCE OF COMPETENCY (self-reported by the candidate):
 \"\"\"{evidence}\"\"\"
 
-Judge whether this evidence demonstrates genuine, specific competency in the claimed skill — not just familiarity with the topic in general. Vague or generic claims without concrete specifics should not pass. Be a reasonably strict but fair examiner.
+PROOF URL SUPPLIED BY CANDIDATE: {proof_url or "(none provided)"}
+{proof_instruction}
+
+INDEPENDENTLY FETCHED CONTENT FROM THAT PROOF URL (empty if none / not fetchable):
+\"\"\"{proof_content}\"\"\"
+
+Judge whether this submission, taken as a whole, demonstrates genuine, specific competency in the claimed skill — not just familiarity with the topic in general. Vague or generic claims without concrete specifics should not pass. A submission backed by verifiable, on-topic fetched content should be trusted more than an equally well-worded submission with no way to check it. Be a reasonably strict but fair examiner.
 
 Respond ONLY with a JSON object in this exact format:
 {{
     "verdict": "certified" | "not_certified",
     "confidence": int (0 to 100),
-    "reasoning": str (one to two concise sentences explaining the decision)
+    "reasoning": str (one to two concise sentences explaining the decision, mentioning whether the proof link supported the claim if one was fetched)
 }}
 It is mandatory that you respond only using the JSON format above, nothing else.
 Don't include any other words, characters, or markdown formatting.
@@ -151,6 +208,7 @@ Your output must be perfectly parsable by a JSON parser without errors.
             parsed["confidence"] = int(parsed["confidence"])
             parsed["reasoning"] = str(parsed["reasoning"])
             parsed["_raw"] = raw
+            parsed["_proof_fetched"] = proof_fetched
             return parsed
 
         def validator_fn(leader_result: gl.vm.Result) -> bool:
