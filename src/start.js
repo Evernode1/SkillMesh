@@ -29,7 +29,7 @@ const BRADBURY_NETWORK = {
 
 app.use(express.static(path.join(__dirname, '../public')));
 
-const PAGES = ['jobs', 'certifications', 'faq'];
+const PAGES = ['jobs', 'certifications', 'faq', 'profile'];
 PAGES.forEach((page) => {
   app.get(`/${page}`, (_req, res) => {
     res.sendFile(path.join(__dirname, `../public/${page}.html`));
