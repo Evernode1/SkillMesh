@@ -2,13 +2,14 @@ import { createClient, createAccount, generatePrivateKey } from "https://esm.sh/
 import { studionet } from "https://esm.sh/genlayer-js@1.1.8/chains";
 import { TransactionStatus } from "https://esm.sh/genlayer-js@1.1.8/types";
 
-const STORAGE_MODE = 'skillmesh_wallet_mode';        // 'none' | 'generated' | 'injected'
+const STORAGE_MODE = 'skillmesh_wallet_mode';        // 'none' | 'generated' | 'injected' | 'walletconnect'
 const STORAGE_ADDRESS = 'skillmesh_wallet_address';
 const STORAGE_GENERATED_KEY = 'skillmesh_generated_key';
 
 let client = null;
 let readOnlyClient = null;
 let config = null;
+let wcProviderPromise = null; // cached WalletConnect EthereumProvider instance
 
 function maskAddress(a) { if (!a) return ''; return a.slice(0, 6) + '…' + a.slice(-4); }
 
@@ -45,12 +46,17 @@ function waitForEthereumProvider(timeoutMs = 3000) {
 }
 
 // ---------------------------------------------------------------------
-// Two ways to get a signer, same as MoodMarket:
-//   "injected"  — MetaMask / SubWallet / any browser wallet extension
-//   "generated" — a private key created and kept only in this browser's
-//                 localStorage. Non-custodial, no extension required at all.
-//                 This exists specifically to sidestep the mobile in-app
-//                 browser wallet-injection issues seen in earlier projects.
+// Three ways to get a signer:
+//   "injected"      — MetaMask / SubWallet / any browser extension wallet.
+//                      Only present on desktop, or inside a wallet app's own
+//                      in-app browser — regular mobile Chrome/Safari won't
+//                      have window.ethereum at all.
+//   "walletconnect"  — QR code / deep link to ANY EVM wallet app (MetaMask,
+//                      Trust Wallet, Rainbow, Coinbase Wallet, etc). This is
+//                      what makes wallet connect actually work on a normal
+//                      mobile browser, not just inside a wallet's browser.
+//   "generated"      — a private key created and kept only in this browser's
+//                      localStorage. Non-custodial, no extension required.
 // ---------------------------------------------------------------------
 
 async function connectInjected() {
@@ -81,11 +87,60 @@ async function connectInjected() {
   const address = accounts[0];
   if (!address) throw new Error('No wallet account was returned.');
 
-  client = createClient({ chain: studionet, account: address });
+  client = createClient({ chain: studionet, account: address, provider });
   localStorage.setItem(STORAGE_MODE, 'injected');
   localStorage.setItem(STORAGE_ADDRESS, address);
   localStorage.removeItem(STORAGE_GENERATED_KEY);
   setUIConnected(address, 'injected');
+  return address;
+}
+
+// Lazily loads and initializes the WalletConnect EthereumProvider (cached —
+// only ever created once per page load). Requires a free Project ID from
+// https://cloud.reown.com set as WALLETCONNECT_PROJECT_ID in the server .env.
+async function getWalletConnectProvider() {
+  if (wcProviderPromise) return wcProviderPromise;
+  wcProviderPromise = (async () => {
+    const { walletConnectProjectId, network: net } = await fetchConfig();
+    if (!walletConnectProjectId) {
+      throw new Error('WalletConnect isn\'t set up yet. Ask the site owner to set WALLETCONNECT_PROJECT_ID (free at cloud.reown.com).');
+    }
+    const { EthereumProvider } = await import('https://esm.sh/@walletconnect/ethereum-provider@2.23.9');
+    const chainId = parseInt(net.chainIdHex, 16);
+    const provider = await EthereumProvider.init({
+      projectId: walletConnectProjectId,
+      showQrModal: true,
+      optionalChains: [chainId],
+      rpcMap: { [chainId]: net.rpcUrls[0] },
+      metadata: {
+        name: 'SkillMesh',
+        description: 'Decentralized AI skill certification and job matching on GenLayer.',
+        url: window.location.origin,
+        icons: [],
+      },
+    });
+    provider.on('disconnect', () => disconnect());
+    return provider;
+  })();
+  try {
+    return await wcProviderPromise;
+  } catch (e) {
+    wcProviderPromise = null; // allow retrying after a failed init
+    throw e;
+  }
+}
+
+async function connectWalletConnect() {
+  const provider = await getWalletConnectProvider();
+  if (!provider.session) await provider.connect();
+  const address = provider.accounts?.[0];
+  if (!address) throw new Error('No account was returned by the wallet.');
+
+  client = createClient({ chain: studionet, account: address, provider });
+  localStorage.setItem(STORAGE_MODE, 'walletconnect');
+  localStorage.setItem(STORAGE_ADDRESS, address);
+  localStorage.removeItem(STORAGE_GENERATED_KEY);
+  setUIConnected(address, 'walletconnect');
   return address;
 }
 
@@ -121,7 +176,17 @@ function exportPrivateKey() {
   return localStorage.getItem(STORAGE_GENERATED_KEY);
 }
 
-function disconnect() {
+async function disconnect() {
+  const mode = getMode();
+  if (mode === 'walletconnect' && wcProviderPromise) {
+    try {
+      const provider = await wcProviderPromise;
+      if (provider.session) await provider.disconnect();
+    } catch {
+      // best-effort — still clear local state below even if the remote
+      // session teardown fails (e.g. wallet app already closed it).
+    }
+  }
   localStorage.removeItem(STORAGE_MODE);
   localStorage.removeItem(STORAGE_ADDRESS);
   // Deliberately keep STORAGE_GENERATED_KEY so a generated wallet survives a
@@ -146,7 +211,13 @@ async function ensureConnected() {
       if (!key) throw new Error('Your browser wallet key is missing. Please reconnect.');
       client = createClient({ chain: studionet, account: createAccount(key) });
     } else if (mode === 'injected') {
-      client = createClient({ chain: studionet, account: getAddress() });
+      const provider = await waitForEthereumProvider();
+      if (!provider) throw new Error('Injected wallet is no longer available. Please reconnect.');
+      client = createClient({ chain: studionet, account: getAddress(), provider });
+    } else if (mode === 'walletconnect') {
+      const provider = await getWalletConnectProvider();
+      if (!provider.accounts?.length) throw new Error('Your WalletConnect session expired. Please reconnect.');
+      client = createClient({ chain: studionet, account: provider.accounts[0], provider });
     }
   }
   return getAddress();
@@ -162,7 +233,11 @@ function setUIConnected(address, mode) {
   const idEl = document.getElementById('walletIdentity');
   if (idEl) idEl.textContent = address;
   const modeEl = document.getElementById('walletModeLabel');
-  if (modeEl) modeEl.textContent = mode === 'injected' ? 'Injected wallet' : 'Browser wallet';
+  if (modeEl) {
+    modeEl.textContent = mode === 'injected' ? 'Browser extension wallet'
+      : mode === 'walletconnect' ? 'WalletConnect wallet'
+      : 'Browser wallet';
+  }
   const disconnectBtn = document.getElementById('walletDisconnectBtn');
   if (disconnectBtn) disconnectBtn.style.display = 'flex';
   document.querySelectorAll('.lockable').forEach((el) => el.classList.remove('is-locked'));
@@ -202,6 +277,7 @@ function init() {
   const panel = document.getElementById('walletPanel');
   const useGeneratedBtn = document.getElementById('walletUseGeneratedBtn');
   const useInjectedBtn = document.getElementById('walletUseInjectedBtn');
+  const useWalletConnectBtn = document.getElementById('walletUseWalletConnectBtn');
   const exportBtn = document.getElementById('walletExportBtn');
   const disconnectBtn = document.getElementById('walletDisconnectBtn');
   const importInput = document.getElementById('walletImportInput');
@@ -231,6 +307,14 @@ function init() {
     }));
   }
 
+  if (useWalletConnectBtn) {
+    useWalletConnectBtn.addEventListener('click', withStatus(async () => {
+      if (status) status.textContent = 'Opening WalletConnect… scan the QR code, or tap through if you\'re on the wallet\'s app.';
+      await connectWalletConnect();
+      if (status) status.textContent = 'Wallet connected via WalletConnect.';
+    }));
+  }
+
   if (exportBtn) {
     exportBtn.addEventListener('click', withStatus(async () => {
       const key = exportPrivateKey();
@@ -242,7 +326,7 @@ function init() {
 
   if (disconnectBtn) {
     disconnectBtn.addEventListener('click', withStatus(async () => {
-      disconnect();
+      await disconnect();
       if (status) status.textContent = 'Disconnected. Your browser wallet key (if any) stays saved locally.';
     }));
   }
@@ -305,6 +389,7 @@ export {
   isConnected,
   ensureConnected,
   disconnect,
+  connectWalletConnect,
   init,
   readContract,
   writeContract,
