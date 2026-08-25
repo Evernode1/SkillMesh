@@ -199,10 +199,12 @@ function wireJobModal() {
     await core.writeContract(boardAddress, 'apply_to_job', [Number(currentJobId), message, Date.now()]);
   }, 'Applied successfully.'));
   document.getElementById('jd-closeJobBtn').addEventListener('click', () => runJobAction(async () => {
+    await core.ensureConnected();
     const { boardAddress } = await core.fetchConfig();
     await core.writeContract(boardAddress, 'close_job', [Number(currentJobId)]);
   }, 'Job closed.', true));
   document.getElementById('jd-withdrawBtn').addEventListener('click', () => runJobAction(async () => {
+    await core.ensureConnected();
     const { boardAddress } = await core.fetchConfig();
     await core.writeContract(boardAddress, 'withdraw_application', [Number(currentJobId)]);
   }, 'Application withdrawn.'));
@@ -257,6 +259,7 @@ async function openJobModal(job) {
 
       list.querySelectorAll('.mark-hired-btn').forEach((btn) => {
         btn.addEventListener('click', () => runJobAction(async () => {
+          await core.ensureConnected();
           const { boardAddress } = await core.fetchConfig();
           await core.writeContract(boardAddress, 'mark_hired', [Number(currentJobId), btn.dataset.candidate]);
         }, 'Candidate hired. Job filled.', true));
