@@ -1,4 +1,4 @@
-import * as core from './core.js?v=3';
+import * as core from './core.js';
 
 core.init();
 document.addEventListener('DOMContentLoaded', routePage);
@@ -247,8 +247,20 @@ async function openJobModal(job) {
       const applicants = JSON.parse(raw);
       const list = document.getElementById('jd-applicants');
       list.innerHTML = applicants.length
-        ? applicants.map((a) => `<div class="application-row"><span class="application-row__addr">${core.maskAddress(a.candidate)}</span> — ${escapeHtml(a.message || '(no message)')}</div>`).join('')
+        ? applicants.map((a) => `
+            <div class="application-row">
+              <span class="application-row__addr">${core.maskAddress(a.candidate)}</span> — ${escapeHtml(a.message || '(no message)')}
+              ${a.withdrawn === 'True' ? ' <span class="form-hint">(withdrawn)</span>' : (job.status === 'open' ? `<button class="btn btn--ghost btn--sm mark-hired-btn" data-candidate="${a.candidate}" style="margin-left:8px;">Mark Hired</button>` : '')}
+            </div>
+          `).join('')
         : '<p class="form-hint">No applicants yet.</p>';
+
+      list.querySelectorAll('.mark-hired-btn').forEach((btn) => {
+        btn.addEventListener('click', () => runJobAction(async () => {
+          const { boardAddress } = await core.fetchConfig();
+          await core.writeContract(boardAddress, 'mark_hired', [Number(currentJobId), btn.dataset.candidate]);
+        }, 'Candidate hired. Job filled.', true));
+      });
     } catch (e) {
       document.getElementById('jd-applicants').innerHTML = `<p class="form-hint">${escapeHtml(e.message || String(e))}</p>`;
     }
