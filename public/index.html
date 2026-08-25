@@ -22,7 +22,7 @@
       };
     }
     (function () {
-      var VERSION_TAG = 'skillmesh-debug-v2'; // bump this to confirm new deploy is live
+      var VERSION_TAG = 'skillmesh-debug-v3'; // bump this to confirm new deploy is live
       function showBanner(text) {
         var el = document.getElementById('debugBanner');
         if (!el) {
@@ -60,7 +60,7 @@
       </nav>
       <div style="position:relative;">
         <button id="walletToggleBtn" class="btn btn--gold">Connect Wallet</button>
-        <span style="position:absolute; bottom:-14px; right:0; font-size:9px; color:#666; font-family:monospace;">build:wc-v2</span>
+        <span style="position:absolute; bottom:-14px; right:0; font-size:9px; color:#666; font-family:monospace;">build:wc-v3</span>
         <div id="walletPanel" style="display:none; position:absolute; right:0; top:calc(100% + 8px); z-index:60; width:320px; background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); padding:16px;">
           <span style="font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; font-weight:700;">Active identity</span>
           <div id="walletModeLabel" style="font-size:12px; color:var(--text-dim); margin-top:2px;">Read-only</div>
@@ -143,6 +143,6 @@
     </div>
   </footer>
 
-  <script type="module" src="js/main.js"></script>
+  <script type="module" src="js/main.js?v=3"></script>
 </body>
 </html>
