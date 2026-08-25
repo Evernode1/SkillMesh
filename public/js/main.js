@@ -1,4 +1,4 @@
-import * as core from './core.js';
+import * as core from './core.js?v=3';
 
 core.init();
 document.addEventListener('DOMContentLoaded', routePage);
