@@ -31,7 +31,16 @@ const BRADBURY_NETWORK = {
   blockExplorerUrls: ['https://explorer-studio.genlayer.com'],
 };
 
-app.use(express.static(path.join(__dirname, '../public')));
+app.use(express.static(path.join(__dirname, '../public'), {
+  setHeaders: (res, filePath) => {
+    // JS files change during active development; don't let browsers or the
+    // Vercel edge cache hang onto a stale copy after a redeploy. HTML/CSS
+    // are left with default caching since they're less prone to this.
+    if (filePath.endsWith('.js')) {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+  },
+}));
 
 const PAGES = ['jobs', 'certifications', 'faq'];
 PAGES.forEach((page) => {
