@@ -18,6 +18,7 @@
         <a href="/jobs" class="nav__link is-active">Job Board</a>
         <a href="/certifications" class="nav__link">Lookup</a>
         <a href="/faq" class="nav__link">Docs</a>
+        <a href="/profile" class="nav__link">My Profile</a>
       </nav>
       <div style="position:relative;">
         <button id="walletToggleBtn" class="btn btn--gold">Connect Wallet</button>
@@ -72,6 +73,11 @@
           <input id="j-min-confidence" class="form-input" type="number" min="0" max="100" value="0" />
           <p class="form-hint">0 = any certified candidate qualifies. Higher bars only let through candidates the AI was more confident about.</p>
         </div>
+        <div class="form-field">
+          <label class="form-label" for="j-positions">Positions needed (how many people this vacancy requires)</label>
+          <input id="j-positions" class="form-input" type="number" min="1" max="10000" value="1" />
+          <p class="form-hint">The job stays open for applications and hiring until this many candidates have been hired.</p>
+        </div>
         <button id="postJobBtn" class="btn btn--gold">Post Job</button>
         <p id="postStatusMsg" class="form-hint" style="margin-top:12px;"></p>
       </section>
@@ -96,6 +102,11 @@
       </div>
       <p id="jd-desc" class="form-hint" style="margin-top:10px;"></p>
       <p class="form-hint">Required skill: <strong id="jd-skill"></strong> (min confidence: <strong id="jd-minconf"></strong>%)</p>
+      <p class="form-hint">Positions: <strong id="jd-positions"></strong></p>
+      <div id="jd-hiredSection" style="margin-top:8px; display:none;">
+        <p class="form-label" style="margin-bottom:6px;">Hired so far</p>
+        <div id="jd-hiredList"></div>
+      </div>
       <div id="jd-applySection" style="margin-top:16px;">
         <textarea id="jd-message" class="form-textarea" placeholder="Optional message to the employer" style="min-height:70px;"></textarea>
         <button id="jd-applyBtn" class="btn btn--gold btn--block" style="margin-top:10px;">Check Eligibility &amp; Apply</button>
