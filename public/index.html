@@ -8,45 +8,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/styles.css" />
-  <script>
-    // Some CDN-bundled npm packages (genlayer-js -> viem) contain optional,
-    // Node-only code paths that call require() as a feature-detection
-    // fallback (e.g. for WebSocket support). The browser has no require(),
-    // which turns an intended graceful fallback into an uncaught
-    // ReferenceError that aborts the whole module. Shimming a require()
-    // that just throws restores the intended "not available, fall back"
-    // behavior instead of crashing.
-    if (typeof window.require === 'undefined') {
-      window.require = function (name) {
-        throw new Error('Cannot require("' + name + '") in the browser.');
-      };
-    }
-    (function () {
-      var VERSION_TAG = 'skillmesh-debug-v3'; // bump this to confirm new deploy is live
-      function showBanner(text) {
-        var el = document.getElementById('debugBanner');
-        if (!el) {
-          el = document.createElement('div');
-          el.id = 'debugBanner';
-          el.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#b00020;color:#fff;font-size:11px;line-height:1.5;padding:8px 10px;font-family:monospace;word-break:break-all;max-height:40vh;overflow:auto;';
-          document.documentElement.appendChild(el);
-        }
-        var line = document.createElement('div');
-        line.textContent = text;
-        el.appendChild(line);
-      }
-      window.addEventListener('error', function (e) {
-        var msg = e && e.message ? e.message : (e && e.target && e.target.src ? 'Failed to load script: ' + e.target.src : 'Unknown error');
-        showBanner('[error] ' + msg);
-      }, true);
-      window.addEventListener('unhandledrejection', function (e) {
-        var reason = e && e.reason ? (e.reason.message || String(e.reason)) : 'Unknown rejection';
-        showBanner('[promise] ' + reason);
-      });
-      window.__skillmeshDebug = VERSION_TAG;
-      console.log('SkillMesh debug banner active:', VERSION_TAG);
-    })();
-  </script>
 </head>
 <body>
   <header class="header">
@@ -60,7 +21,6 @@
       </nav>
       <div style="position:relative;">
         <button id="walletToggleBtn" class="btn btn--gold">Connect Wallet</button>
-        <span style="position:absolute; bottom:-14px; right:0; font-size:9px; color:#666; font-family:monospace;">build:wc-v3</span>
         <div id="walletPanel" style="display:none; position:absolute; right:0; top:calc(100% + 8px); z-index:60; width:320px; background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); padding:16px;">
           <span style="font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; font-weight:700;">Active identity</span>
           <div id="walletModeLabel" style="font-size:12px; color:var(--text-dim); margin-top:2px;">Read-only</div>
@@ -119,30 +79,3 @@
             <span id="resultBadge" class="badge-hex badge-hex--lg badge-hex--certified">Certified</span>
             <div style="margin-top:10px;"><strong>Confidence:</strong> <span id="resultConfidence"></span>%</div>
             <div style="margin-top:6px;"><strong>Reasoning:</strong> <span id="resultReasoning"></span></div>
-            <button id="viewRawBtn" class="btn btn--ghost btn--sm" style="margin-top:12px;">View Raw AI Response</button>
-          </div>
-        </div>
-      </section>
-
-      <section style="margin-top: 40px;">
-        <p class="hero__eyebrow" style="margin-bottom: 12px;">Any app can verify a certification</p>
-        <div class="codeblock">const oracle = client.readContract({
-  address: ORACLE_ADDRESS,
-  functionName: "is_certified",
-  args: [candidateAddress, "solidity"],
-});
-// -> true / false, backed by AI-validator consensus, not by trusting the candidate</div>
-      </section>
-    </div>
-  </main>
-
-  <footer class="footer">
-    <div class="container footer__row">
-      <p>© 2026 SkillMesh. Built on GenLayer.</p>
-      <p>Two contracts. Certification is reusable proof, not a one-off badge.</p>
-    </div>
-  </footer>
-
-  <script type="module" src="js/main.js?v=3"></script>
-</body>
-</html>
