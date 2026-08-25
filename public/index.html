@@ -32,6 +32,7 @@
         <a href="/jobs" class="nav__link">Job Board</a>
         <a href="/certifications" class="nav__link">Lookup</a>
         <a href="/faq" class="nav__link">Docs</a>
+        <a href="/profile" class="nav__link">My Profile</a>
       </nav>
       <div style="position:relative;">
         <button id="walletToggleBtn" class="btn btn--gold">Connect Wallet</button>
@@ -74,7 +75,7 @@
 
       <section id="sectionCertify" class="panel lockable is-locked">
         <div class="form-note">
-          Be specific. "I built X using Y, here's how it works" passes far more often than "I know JavaScript."
+          Be specific. "I built X using Y, here's how it works" passes far more often than "I know JavaScript." Add a proof link below if you have one — it's checked independently, not just taken on your word.
         </div>
         <div class="form-field">
           <label class="form-label" for="c-skill">Skill</label>
@@ -85,6 +86,11 @@
           <textarea id="c-evidence" class="form-textarea" placeholder="Describe specific work you've done that demonstrates this skill — a project, a problem you solved, a decision you made and why."></textarea>
           <p class="form-hint">Max 4000 characters.</p>
         </div>
+        <div class="form-field">
+          <label class="form-label" for="c-proof">Proof link (optional, but strongly recommended)</label>
+          <input id="c-proof" class="form-input" type="text" placeholder="e.g. a GitHub repo, live demo, published article, or portfolio page" />
+          <p class="form-hint">If you provide a link, the AI validators fetch it themselves — independently of what you typed — and weigh it heavily. This is real proof that you can actually do the work, not just a claim in a text box. Without a link, your submission is judged as self-reported text only, held to a stricter bar.</p>
+        </div>
         <button id="certifyBtn" class="btn btn--gold btn--block">Request Certification</button>
         <p id="statusMsg" class="form-hint" style="margin-top:14px;"></p>
 
@@ -93,6 +99,7 @@
             <span id="resultBadge" class="badge-hex badge-hex--lg badge-hex--certified">Certified</span>
             <div style="margin-top:10px;"><strong>Confidence:</strong> <span id="resultConfidence"></span>%</div>
             <div style="margin-top:6px;"><strong>Reasoning:</strong> <span id="resultReasoning"></span></div>
+            <div id="resultProofRow" style="margin-top:6px; display:none;"><strong>Proof link:</strong> <span id="resultProof"></span></div>
             <button id="viewRawBtn" class="btn btn--ghost btn--sm" style="margin-top:12px;">View Raw AI Response</button>
           </div>
         </div>
