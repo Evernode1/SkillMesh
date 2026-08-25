@@ -8,6 +8,20 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/styles.css" />
+  <script>
+    // Some CDN-bundled npm packages (genlayer-js -> viem) contain optional,
+    // Node-only code paths that call require() as a feature-detection
+    // fallback (e.g. for WebSocket support). The browser has no require(),
+    // which turns an intended graceful fallback into an uncaught
+    // ReferenceError that aborts the whole module. Shimming a require()
+    // that just throws restores the intended "not available, fall back"
+    // behavior instead of crashing.
+    if (typeof window.require === 'undefined') {
+      window.require = function (name) {
+        throw new Error('Cannot require("' + name + '") in the browser.');
+      };
+    }
+  </script>
 </head>
 <body>
   <header class="header">
@@ -79,3 +93,30 @@
             <span id="resultBadge" class="badge-hex badge-hex--lg badge-hex--certified">Certified</span>
             <div style="margin-top:10px;"><strong>Confidence:</strong> <span id="resultConfidence"></span>%</div>
             <div style="margin-top:6px;"><strong>Reasoning:</strong> <span id="resultReasoning"></span></div>
+            <button id="viewRawBtn" class="btn btn--ghost btn--sm" style="margin-top:12px;">View Raw AI Response</button>
+          </div>
+        </div>
+      </section>
+
+      <section style="margin-top: 40px;">
+        <p class="hero__eyebrow" style="margin-bottom: 12px;">Any app can verify a certification</p>
+        <div class="codeblock">const oracle = client.readContract({
+  address: ORACLE_ADDRESS,
+  functionName: "is_certified",
+  args: [candidateAddress, "solidity"],
+});
+// -> true / false, backed by AI-validator consensus, not by trusting the candidate</div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer__row">
+      <p>© 2026 SkillMesh. Built on GenLayer.</p>
+      <p>Two contracts. Certification is reusable proof, not a one-off badge.</p>
+    </div>
+  </footer>
+
+  <script type="module" src="js/main.js?v=3"></script>
+</body>
+</html>
