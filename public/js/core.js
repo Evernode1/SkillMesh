@@ -1,6 +1,6 @@
-import { createClient, createAccount, generatePrivateKey } from "https://esm.sh/genlayer-js@0.28.0";
-import { studionet } from "https://esm.sh/genlayer-js@0.28.0/chains";
-import { TransactionStatus } from "https://esm.sh/genlayer-js@0.28.0/types";
+import { createClient, createAccount, generatePrivateKey } from "https://esm.sh/genlayer-js@1.1.8";
+import { studionet } from "https://esm.sh/genlayer-js@1.1.8/chains";
+import { TransactionStatus } from "https://esm.sh/genlayer-js@1.1.8/types";
 
 const STORAGE_MODE = 'skillmesh_wallet_mode';        // 'none' | 'generated' | 'injected'
 const STORAGE_ADDRESS = 'skillmesh_wallet_address';
