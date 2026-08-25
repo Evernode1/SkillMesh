@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SkillMesh — Job Board</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header class="header">
+    <div class="container header__row">
+      <a href="/" class="brand"><span class="brand__mark">SM</span><span class="brand__word">SkillMesh</span></a>
+      <nav class="nav">
+        <a href="/" class="nav__link">Get Certified</a>
+        <a href="/jobs" class="nav__link is-active">Job Board</a>
+        <a href="/certifications" class="nav__link">Lookup</a>
+        <a href="/faq" class="nav__link">Docs</a>
+      </nav>
+      <div style="position:relative;">
+        <button id="walletToggleBtn" class="btn btn--gold">Connect Wallet</button>
+        <div id="walletPanel" style="display:none; position:absolute; right:0; top:calc(100% + 8px); z-index:60; width:320px; background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); padding:16px;">
+          <span style="font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; font-weight:700;">Active identity</span>
+          <div id="walletModeLabel" style="font-size:12px; color:var(--text-dim); margin-top:2px;">Read-only</div>
+          <div id="walletIdentity" style="font-family:var(--mono); font-size:12px; word-break:break-all; margin-top:4px;">Browsing read-only</div>
+          <div style="display:grid; gap:8px; margin-top:14px;">
+            <button id="walletUseGeneratedBtn" class="btn btn--ghost btn--sm">Use Browser Wallet</button>
+            <button id="walletUseInjectedBtn" class="btn btn--ghost btn--sm">Use Injected Wallet</button>
+            <button id="walletExportBtn" class="btn btn--ghost btn--sm">Export Browser Key</button>
+            <button id="walletDisconnectBtn" class="btn btn--ghost btn--sm" style="display:none;">Disconnect</button>
+          </div>
+          <div style="margin-top:14px; border:1px solid var(--gold-dim); background:rgba(224,184,79,0.08); border-radius:var(--radius); padding:10px; font-size:11px; color:var(--text-dim); line-height:1.5;">
+            The browser wallet is a locally generated key, non-custodial, stored only in this browser. Export and back it up — losing it means losing access to anything tied to it.
+          </div>
+          <label style="display:block; margin-top:12px; font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; font-weight:700;">Import browser key</label>
+          <div style="display:flex; gap:6px; margin-top:6px;">
+            <input id="walletImportInput" class="form-input" type="text" placeholder="0x..." style="flex:1; font-size:12px;" />
+            <button id="walletImportBtn" class="btn btn--ghost btn--sm">Import</button>
+          </div>
+          <p id="walletStatusMsg" class="form-hint" style="margin-top:10px;"></p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="container">
+      <section class="hero" style="padding-bottom: 8px;">
+        <p class="hero__eyebrow">Job Board</p>
+        <h1 class="hero__title" style="font-size: 30px;">Hiring, gated by verified skill</h1>
+        <p class="hero__sub">Applying to a job here checks your certification on the CertifierOracle contract in real time — no separate approval step, no self-reported skills.</p>
+      </section>
+
+      <section id="sectionPost" class="panel lockable is-locked" style="margin-bottom: 28px;">
+        <div class="form-field">
+          <label class="form-label" for="j-title">Job title</label>
+          <input id="j-title" class="form-input" type="text" placeholder="e.g. Frontend engineer for a 2-week sprint" />
+        </div>
+        <div class="form-field">
+          <label class="form-label" for="j-desc">Description</label>
+          <textarea id="j-desc" class="form-textarea" placeholder="What the work involves"></textarea>
+        </div>
+        <div class="form-field">
+          <label class="form-label" for="j-skill">Required skill (must match a skill name on the oracle)</label>
+          <input id="j-skill" class="form-input" type="text" placeholder="e.g. solidity" />
+        </div>
+        <div class="form-field">
+          <label class="form-label" for="j-min-confidence">Minimum certification confidence</label>
+          <input id="j-min-confidence" class="form-input" type="number" min="0" max="100" value="0" />
+          <p class="form-hint">0 = any certified candidate qualifies. Higher bars only let through candidates the AI was more confident about.</p>
+        </div>
+        <button id="postJobBtn" class="btn btn--gold">Post Job</button>
+        <p id="postStatusMsg" class="form-hint" style="margin-top:12px;"></p>
+      </section>
+
+      <section class="toolbar" aria-label="Filters">
+        <div class="tabs" role="tablist">
+          <button class="tab is-active" data-status="all">All</button>
+          <button class="tab" data-status="open">Open</button>
+          <button class="tab" data-status="filled">Filled</button>
+        </div>
+      </section>
+
+      <section id="sectionJobs" class="cards"></section>
+    </div>
+  </main>
+
+  <div id="jobDetailModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:100; align-items:center; justify-content:center; padding:20px; overflow-y:auto;">
+    <div style="background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); padding:26px; max-width:520px; width:100%; margin: 40px 0;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+        <h2 id="jd-title" style="margin:0; font-size:20px;"></h2>
+        <button id="jd-close" class="btn btn--ghost btn--sm">✕</button>
+      </div>
+      <p id="jd-desc" class="form-hint" style="margin-top:10px;"></p>
+      <p class="form-hint">Required skill: <strong id="jd-skill"></strong> (min confidence: <strong id="jd-minconf"></strong>%)</p>
+      <div id="jd-applySection" style="margin-top:16px;">
+        <textarea id="jd-message" class="form-textarea" placeholder="Optional message to the employer" style="min-height:70px;"></textarea>
+        <button id="jd-applyBtn" class="btn btn--gold btn--block" style="margin-top:10px;">Check Eligibility &amp; Apply</button>
+        <button id="jd-withdrawBtn" class="btn btn--ghost btn--block" style="margin-top:8px;">Withdraw My Application</button>
+      </div>
+      <div id="jd-employerSection" style="margin-top:16px; display:none;">
+        <p class="form-label">Applicants</p>
+        <div id="jd-applicants"></div>
+        <button id="jd-closeJobBtn" class="btn btn--ghost btn--sm" style="margin-top:8px;">Close Job</button>
+      </div>
+      <p id="jd-status" class="form-hint" style="margin-top:12px;"></p>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="container footer__row">
+      <p>© 2026 SkillMesh. Built on GenLayer.</p>
+      <p>No staking, no application fees — just verified skill.</p>
+    </div>
+  </footer>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

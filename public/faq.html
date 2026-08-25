@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SkillMesh — Docs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header class="header">
+    <div class="container header__row">
+      <a href="/" class="brand"><span class="brand__mark">SM</span><span class="brand__word">SkillMesh</span></a>
+      <nav class="nav">
+        <a href="/" class="nav__link">Get Certified</a>
+        <a href="/jobs" class="nav__link">Job Board</a>
+        <a href="/certifications" class="nav__link">Lookup</a>
+        <a href="/faq" class="nav__link is-active">Docs</a>
+      </nav>
+      <div style="position:relative;">
+        <button id="walletToggleBtn" class="btn btn--gold">Connect Wallet</button>
+        <div id="walletPanel" style="display:none; position:absolute; right:0; top:calc(100% + 8px); z-index:60; width:320px; background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); padding:16px;">
+          <span style="font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; font-weight:700;">Active identity</span>
+          <div id="walletModeLabel" style="font-size:12px; color:var(--text-dim); margin-top:2px;">Read-only</div>
+          <div id="walletIdentity" style="font-family:var(--mono); font-size:12px; word-break:break-all; margin-top:4px;">Browsing read-only</div>
+          <div style="display:grid; gap:8px; margin-top:14px;">
+            <button id="walletUseGeneratedBtn" class="btn btn--ghost btn--sm">Use Browser Wallet</button>
+            <button id="walletUseInjectedBtn" class="btn btn--ghost btn--sm">Use Injected Wallet</button>
+            <button id="walletExportBtn" class="btn btn--ghost btn--sm">Export Browser Key</button>
+            <button id="walletDisconnectBtn" class="btn btn--ghost btn--sm" style="display:none;">Disconnect</button>
+          </div>
+          <div style="margin-top:14px; border:1px solid var(--gold-dim); background:rgba(224,184,79,0.08); border-radius:var(--radius); padding:10px; font-size:11px; color:var(--text-dim); line-height:1.5;">
+            The browser wallet is a locally generated key, non-custodial, stored only in this browser. Export and back it up — losing it means losing access to anything tied to it.
+          </div>
+          <label style="display:block; margin-top:12px; font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; font-weight:700;">Import browser key</label>
+          <div style="display:flex; gap:6px; margin-top:6px;">
+            <input id="walletImportInput" class="form-input" type="text" placeholder="0x..." style="flex:1; font-size:12px;" />
+            <button id="walletImportBtn" class="btn btn--ghost btn--sm">Import</button>
+          </div>
+          <p id="walletStatusMsg" class="form-hint" style="margin-top:10px;"></p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="container" style="padding-top: 40px; max-width: 760px;">
+      <p class="hero__eyebrow">Documentation</p>
+      <h1 class="hero__title" style="font-size: 32px;">How SkillMesh works</h1>
+
+      <div class="panel">
+        <h2 style="font-size:17px;">1. Two contracts, one relationship</h2>
+        <p class="detail-section" style="border:none;padding-top:0;margin-top:0;"><code>CertifierOracle</code> issues and stores certifications. <code>HiringBoard</code> is a completely separate contract that never stores or judges skill evidence itself — it simply calls <code>oracle.view().is_certified(candidate, skill)</code> before accepting an application. This is genuine contract composability: the Board trusts the Oracle's on-chain answer instead of re-implementing verification.</p>
+
+        <h2 style="font-size:17px;">2. Certification is a judgment, not a checkbox</h2>
+        <p class="detail-section" style="border:none;padding-top:0;margin-top:0;">You submit specific evidence of competency. A GenLayer validator leader judges whether it demonstrates real skill; other validators independently re-judge the same evidence, and the network only records a verdict once they agree. Vague claims fail; specific, demonstrable work passes.</p>
+
+        <h2 style="font-size:17px;">3. Certifications are reusable</h2>
+        <p class="detail-section" style="border:none;padding-top:0;margin-top:0;">Once issued, a certification lives permanently on the Oracle. Any number of other apps — not just this Job Board — can check it with a free, walletless read call. You prove a skill once and reuse that proof everywhere.</p>
+
+        <h2 style="font-size:17px;">4. No staking, no fees</h2>
+        <p class="detail-section" style="border:none;padding-top:0;margin-top:0;">There's nothing to stake or pay beyond the small GenLayer network fee for your own transaction. Applying to a job costs nothing extra even if you're rejected.</p>
+      </div>
+
+      <div style="margin-top: 32px;">
+        <p class="hero__eyebrow" style="margin-bottom: 12px;">Cross-contract call, from inside HiringBoard.py</p>
+        <div class="codeblock">oracle_contract = gl.get_contract_at(self.oracle)
+certified = oracle_contract.view().is_certified(candidate.as_hex, job.required_skill)
+if not certified:
+    raise Exception(f"You are not yet certified in '{job.required_skill}'.")</div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer__row">
+      <p>© 2026 SkillMesh. Built on GenLayer.</p>
+      <p>Two contracts. No staking. Certification is reusable proof.</p>
+    </div>
+  </footer>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
