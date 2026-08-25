@@ -22,7 +22,14 @@ Both contracts are deployed once, by whoever sets the project up. There is no `P
 | Network | GenLayer StudioNet |
 | Contracts | `contracts/certifier_oracle.py`, `contracts/hiring_board.py` |
 
-## What's new in this upgrade
+## What's new in this upgrade (proof links, vacancies, profile page)
+
+- **Verifiable proof links, not just text** — `request_certification` now takes an optional `proof_url`. When supplied, the AI validators independently fetch that page themselves (`gl.nondet.web.render`) — the candidate never controls what gets fetched — and are instructed to weigh it heavily. A submission with no proof link is explicitly judged as self-reported text only and held to a stricter bar. This is the real answer to "just writing text shouldn't be enough": the strength of the proof is now part of what's judged, and it's visible on every certification (`proof_url`, `proof_fetched`).
+- **Vacancies (`positions_needed`)** — every job now records how many people it needs, not just whether it's open. `post_job` takes a `positions_needed` argument; `mark_hired` can be called once per position until the job auto-transitions to `filled`, and an employer can hire several different certified candidates for the same posting.
+- **My Profile page** (`/profile`) — everything tied to the connected address in one place: certificates earned, jobs posted, jobs applied to (with per-job status: applied / withdrawn / hired), and jobs hired into. Backed by new read-only contract views (`get_jobs_posted_by`, `get_jobs_applied_by`, `get_jobs_hired_in`) plus the existing `get_skills_for_holder`.
+- **⚠️ Breaking contract change** — `request_certification` and `post_job` both have new required arguments (`proof_url`, `positions_needed`). Both contracts must be **redeployed**, and `ORACLE_ADDRESS` / `BOARD_ADDRESS` in `.env` updated to the new addresses. Certifications and jobs issued under the old contracts won't carry over.
+
+## What's new in the previous upgrade
 
 - **Two wallet modes** — connect an injected wallet (MetaMask, SubWallet, etc.) as before, or use a **Browser Wallet**: a private key generated and kept only in this browser's `localStorage`, non-custodial, no extension required at all. This sidesteps the mobile in-app-browser wallet-injection issues that came up in earlier projects — export the key any time to back it up or move it elsewhere.
 - **Real deliverable-grade confidence gating** — a job can require not just `certified`, but a minimum confidence score (`is_certified_with_min_confidence`), so an employer can set a higher bar than a bare pass/fail.
@@ -47,7 +54,7 @@ pip install -r tests/requirements.txt
 pytest tests/test.py -v -s
 ```
 
-Deploys both contracts (Board pointed at Oracle) per session. Covers: stats starting at zero, an uncertified candidate correctly failing `is_certified`, strong vs. weak evidence being judged independently, and — the key test — cross-contract gating: an application is rejected before it's even certified in a skill the job doesn't require, and accepted once the candidate holds the required certification.
+Deploys both contracts (Board pointed at Oracle) per session. Covers: stats starting at zero, an uncertified candidate correctly failing `is_certified`, strong vs. weak evidence being judged independently, cross-contract gating (an application is rejected before it's even certified in a skill the job doesn't require, and accepted once the candidate holds the required certification), multi-position jobs staying open until every vacancy is filled, and the `/profile`-backing views (`get_jobs_posted_by` / `get_jobs_applied_by` / `get_jobs_hired_in`).
 
 ---
 
