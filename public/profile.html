@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SkillMesh — My Profile</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header class="header">
+    <div class="container header__row">
+      <a href="/" class="brand"><span class="brand__mark">SM</span><span class="brand__word">SkillMesh</span></a>
+      <nav class="nav">
+        <a href="/" class="nav__link">Get Certified</a>
+        <a href="/jobs" class="nav__link">Job Board</a>
+        <a href="/certifications" class="nav__link">Lookup</a>
+        <a href="/faq" class="nav__link">Docs</a>
+        <a href="/profile" class="nav__link is-active">My Profile</a>
+      </nav>
+      <div style="position:relative;">
+        <button id="walletToggleBtn" class="btn btn--gold">Connect Wallet</button>
+        <div id="walletPanel" style="display:none; position:absolute; right:0; top:calc(100% + 8px); z-index:60; width:320px; background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); padding:16px;">
+          <span style="font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; font-weight:700;">Active identity</span>
+          <div id="walletModeLabel" style="font-size:12px; color:var(--text-dim); margin-top:2px;">Read-only</div>
+          <div id="walletIdentity" style="font-family:var(--mono); font-size:12px; word-break:break-all; margin-top:4px;">Browsing read-only</div>
+          <div style="display:grid; gap:8px; margin-top:14px;">
+            <button id="walletUseGeneratedBtn" class="btn btn--ghost btn--sm">Use Browser Wallet</button>
+            <button id="walletUseInjectedBtn" class="btn btn--ghost btn--sm">Use Browser Extension</button>
+            <button id="walletUseWalletConnectBtn" class="btn btn--ghost btn--sm">Connect Any EVM Wallet</button>
+            <button id="walletExportBtn" class="btn btn--ghost btn--sm">Export Browser Key</button>
+            <button id="walletDisconnectBtn" class="btn btn--ghost btn--sm" style="display:none;">Disconnect</button>
+          </div>
+          <div style="margin-top:14px; border:1px solid var(--gold-dim); background:rgba(224,184,79,0.08); border-radius:var(--radius); padding:10px; font-size:11px; color:var(--text-dim); line-height:1.5;">
+            The browser wallet is a locally generated key, non-custodial, stored only in this browser. Export and back it up — losing it means losing access to anything tied to it.
+          </div>
+          <label style="display:block; margin-top:12px; font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; font-weight:700;">Import browser key</label>
+          <div style="display:flex; gap:6px; margin-top:6px;">
+            <input id="walletImportInput" class="form-input" type="text" placeholder="0x..." style="flex:1; font-size:12px;" />
+            <button id="walletImportBtn" class="btn btn--ghost btn--sm">Import</button>
+          </div>
+          <p id="walletStatusMsg" class="form-hint" style="margin-top:10px;"></p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="container">
+      <section class="hero" style="padding-bottom: 8px;">
+        <p class="hero__eyebrow">My Profile</p>
+        <h1 class="hero__title" style="font-size: 30px;">Everything tied to your address</h1>
+        <p id="profileAddressLine" class="hero__sub">Connect a wallet to see your certificates, posted jobs, applications, and hires.</p>
+      </section>
+
+      <div id="profileDisconnected" class="panel">
+        <p class="form-hint">You need to connect a wallet to view your profile — use the wallet button in the top right.</p>
+      </div>
+
+      <div id="profileConnected" style="display:none;">
+        <section class="toolbar" aria-label="Profile sections">
+          <div class="tabs" role="tablist">
+            <button class="tab is-active" data-section="certs">My Certificates</button>
+            <button class="tab" data-section="posted">My Posted Jobs</button>
+            <button class="tab" data-section="applied">My Applied Jobs</button>
+            <button class="tab" data-section="hired">Jobs I'm Hired In</button>
+          </div>
+        </section>
+
+        <section id="profile-certs" class="profile-section">
+          <div id="certsCards" class="cards"><p class="form-hint">Loading…</p></div>
+        </section>
+
+        <section id="profile-posted" class="profile-section" style="display:none;">
+          <div id="postedCards" class="cards"><p class="form-hint">Loading…</p></div>
+        </section>
+
+        <section id="profile-applied" class="profile-section" style="display:none;">
+          <div id="appliedCards" class="cards"><p class="form-hint">Loading…</p></div>
+        </section>
+
+        <section id="profile-hired" class="profile-section" style="display:none;">
+          <div id="hiredCards" class="cards"><p class="form-hint">Loading…</p></div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer__row">
+      <p>© 2026 SkillMesh. Built on GenLayer.</p>
+      <p>Everything here is read directly from the two on-chain contracts.</p>
+    </div>
+  </footer>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
