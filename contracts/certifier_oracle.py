@@ -2,6 +2,9 @@
 from genlayer import *
 from dataclasses import dataclass
 import json
+import datetime
+
+CONFIDENCE_AGREEMENT_TOLERANCE = 15  # max points two validators' confidence scores may differ by and still agree
 
 
 @allow_storage
@@ -37,6 +40,7 @@ class Certification:
 class CertifierOracle(gl.Contract):
     certifications: TreeMap[str, Certification]  # key: f"{holder}:{skill}"
     holder_skills: TreeMap[Address, DynArray[str]]
+    proof_owner: TreeMap[str, Address]  # proof_url -> the first holder who claimed it
     total_issued: u256
     total_certified: u256
 
@@ -73,7 +77,7 @@ class CertifierOracle(gl.Contract):
         self.owner = Address(new_owner)
 
     @gl.public.write
-    def request_certification(self, skill: str, evidence: str, proof_url: str, created_at: int):
+    def request_certification(self, skill: str, evidence: str, proof_url: str):
         """
         Anyone can request certification for a skill by submitting evidence of
         their competency. AI validators independently judge whether the
@@ -84,6 +88,13 @@ class CertifierOracle(gl.Contract):
         validators independently fetch that page themselves (it is NOT
         supplied by the candidate as text) and weigh it heavily — this is
         real, hard-to-fake proof, as opposed to a bare self-reported claim.
+        A given proof URL can only ever be claimed by the first address that
+        successfully submits it, so one candidate's proof can't be copied
+        and reused by someone else to piggyback on it.
+
+        The certification timestamp is the contract's own clock at the time
+        of this call — it is never taken from caller input, so it can't be
+        backdated or fast-forwarded to dodge the re-attempt cooldown.
         """
         if self.paused:
             raise Exception("Certification requests are currently paused")
@@ -104,8 +115,18 @@ class CertifierOracle(gl.Contract):
         key = f"{holder.as_hex.lower()}:{clean_skill}"
         existing = self.certifications.get(key, None)
 
+        if clean_proof_url:
+            proof_claimant = self.proof_owner.get(clean_proof_url, None)
+            if proof_claimant is not None and proof_claimant.as_hex.lower() != holder.as_hex.lower():
+                raise Exception(
+                    "This proof URL has already been claimed by a different address. "
+                    "Proof must be tied to the identity that owns it."
+                )
+
+        now_ts = datetime.datetime.now().timestamp()
+
         if existing is not None and int(self.min_reattempt_seconds) > 0:
-            elapsed = created_at / 1000 - float(existing.issued_at)
+            elapsed = now_ts - float(existing.issued_at)
             if elapsed < int(self.min_reattempt_seconds):
                 raise Exception(
                     f"Please wait before re-attempting this skill (cooldown: {self.min_reattempt_seconds}s)"
@@ -124,7 +145,7 @@ class CertifierOracle(gl.Contract):
             verdict=result["verdict"],
             confidence=u256(int(result["confidence"])),
             reasoning=result["reasoning"],
-            issued_at=str(created_at / 1000),
+            issued_at=str(now_ts),
             attempt_count=attempt_count,
             last_raw_response=str(result.get("_raw", ""))[:2000],
         )
@@ -132,6 +153,9 @@ class CertifierOracle(gl.Contract):
         self.total_issued = u256(self.total_issued + 1)
         if result["verdict"] == "certified":
             self.total_certified = u256(self.total_certified + 1)
+
+        if clean_proof_url and self.proof_owner.get(clean_proof_url, None) is None:
+            self.proof_owner[clean_proof_url] = holder
 
         skills = self.holder_skills.get_or_insert_default(holder)
         if clean_skill not in list(skills):
@@ -205,7 +229,8 @@ Your output must be perfectly parsable by a JSON parser without errors.
             parsed["verdict"] = str(parsed["verdict"]).strip().lower()
             if parsed["verdict"] not in ("certified", "not_certified"):
                 parsed["verdict"] = "not_certified"
-            parsed["confidence"] = int(parsed["confidence"])
+            confidence = int(parsed["confidence"])
+            parsed["confidence"] = max(0, min(100, confidence))  # enforce the 0-100 range regardless of what the model returned
             parsed["reasoning"] = str(parsed["reasoning"])
             parsed["_raw"] = raw
             parsed["_proof_fetched"] = proof_fetched
@@ -216,7 +241,14 @@ Your output must be perfectly parsable by a JSON parser without errors.
                 return False
             leader_data = leader_result.calldata
             validator_data = leader_fn()
-            return leader_data["verdict"] == validator_data["verdict"]
+            if leader_data["verdict"] != validator_data["verdict"]:
+                return False
+            # Confidence is what HiringBoard (and any other consumer) actually
+            # gates access on, so consensus must cover it too — not just the
+            # verdict label. LLM confidence scores vary slightly run to run,
+            # so validators agree within a tolerance rather than requiring an
+            # exact match.
+            return abs(leader_data["confidence"] - validator_data["confidence"]) <= CONFIDENCE_AGREEMENT_TOLERANCE
 
         return gl.vm.run_nondet(leader_fn, validator_fn)
 
