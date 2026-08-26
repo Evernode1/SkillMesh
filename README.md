@@ -22,6 +22,15 @@ Both contracts are deployed once, by whoever sets the project up. There is no `P
 | Network | GenLayer StudioNet |
 | Contracts | `contracts/certifier_oracle.py`, `contracts/hiring_board.py` |
 
+## Steward review fixes (this revision)
+
+- **Consensus now covers the confidence value, not just the verdict** — `validator_fn` previously only required validators to agree on `"certified"` / `"not_certified"`; the confidence number that HiringBoard actually gates access on could come from the leader alone. Validators now must also agree within a tolerance (±15 points) on the confidence score for a result to be accepted.
+- **Confidence is clamped to 0-100** — regardless of what the underlying model returns, the stored value is forced into the valid range before it's ever used for gating.
+- **Proof URLs are bound to the identity that claims them** — a `proof_url` can only ever be successfully claimed by the first address that submits it; a different address trying to reuse someone else's proof link is rejected outright.
+- **Certification timestamps are no longer caller-controlled** — `request_certification` no longer accepts a `created_at` argument from the caller; it now reads the contract's own clock (`datetime.datetime.now()`, the documented deterministic pattern for this runner) so the re-attempt cooldown can't be bypassed by supplying a fake timestamp.
+- **New tests** — `tests/test.py` now specifically verifies that minimum-confidence eligibility checks in HiringBoard use the exact confidence value agreed on-chain by the Oracle (bracketing the agreed value with an at-bar and above-bar job), that confidence is always within 0-100, and that a proof URL can't be claimed by a second address.
+- **⚠️ Breaking contract change** — `request_certification`'s signature dropped `created_at` (now 3 args: `skill`, `evidence`, `proof_url`). The Oracle must be **redeployed**, and `ORACLE_ADDRESS` in `.env` updated. HiringBoard is unaffected and does not need redeploying.
+
 ## What's new in this upgrade (proof links, vacancies, profile page)
 
 - **Verifiable proof links, not just text** — `request_certification` now takes an optional `proof_url`. When supplied, the AI validators independently fetch that page themselves (`gl.nondet.web.render`) — the candidate never controls what gets fetched — and are instructed to weigh it heavily. A submission with no proof link is explicitly judged as self-reported text only and held to a stricter bar. This is the real answer to "just writing text shouldn't be enough": the strength of the proof is now part of what's judged, and it's visible on every certification (`proof_url`, `proof_fetched`).
