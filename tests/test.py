@@ -78,7 +78,7 @@ def test_not_certified_before_any_request(oracle_address, deployer, candidate):
 
 
 def test_strong_evidence_likely_certifies(oracle_address, candidate):
-    response = send_transaction(candidate, oracle_address, "request_certification", ["solidity", STRONG_EVIDENCE, "", int(time.time() * 1000)])
+    response = send_transaction(candidate, oracle_address, "request_certification", ["solidity", STRONG_EVIDENCE, ""])
     assert has_success_status(response)
     record = json.loads(call_contract_method(oracle_address, candidate, "get_certification", [candidate.address, "solidity"]))
     print(f"[verdict] {record['verdict']} (confidence={record['confidence']}) — {record['reasoning']}")
@@ -86,7 +86,7 @@ def test_strong_evidence_likely_certifies(oracle_address, candidate):
 
 
 def test_weak_evidence_is_judged_independently(oracle_address, candidate):
-    response = send_transaction(candidate, oracle_address, "request_certification", ["marathon-running", WEAK_EVIDENCE, "", int(time.time() * 1000)])
+    response = send_transaction(candidate, oracle_address, "request_certification", ["marathon-running", WEAK_EVIDENCE, ""])
     assert has_success_status(response)
     record = json.loads(call_contract_method(oracle_address, candidate, "get_certification", [candidate.address, "marathon-running"]))
     print(f"[verdict] {record['verdict']} (confidence={record['confidence']}) — {record['reasoning']}")
@@ -132,7 +132,7 @@ def test_only_owner_can_pause_oracle(oracle_address, deployer, candidate):
     owner_attempt = send_transaction(deployer, oracle_address, "set_paused", [True])
     assert has_success_status(owner_attempt)
 
-    blocked = send_transaction(candidate, oracle_address, "request_certification", ["painting", STRONG_EVIDENCE, "", int(time.time() * 1000)])
+    blocked = send_transaction(candidate, oracle_address, "request_certification", ["painting", STRONG_EVIDENCE, ""])
     assert not has_success_status(blocked)
 
     send_transaction(deployer, oracle_address, "set_paused", [False])  # unpause for any later tests
@@ -162,6 +162,55 @@ def test_min_confidence_gating(oracle_address, board_address, employer, candidat
         assert eligible is True
     else:
         assert eligible is False
+
+
+def test_eligibility_uses_the_agreed_confidence_result(oracle_address, board_address, employer, candidate):
+    """
+    Confirms HiringBoard's eligibility check reads exactly the confidence
+    value that consensus agreed on and stored in CertifierOracle — not a
+    separately-computed or leader-only number. We read the on-chain
+    certification confidence directly, then post two jobs bracketing it
+    (one at that exact bar, one one point above) and confirm eligibility
+    flips accordingly.
+    """
+    record = json.loads(call_contract_method(oracle_address, candidate, "get_certification", [candidate.address, "solidity"]))
+    if record["verdict"] != "certified":
+        pytest.skip("Candidate is not certified in solidity for this run; confidence-consistency check not exercised")
+    agreed_confidence = int(record["confidence"])
+
+    send_transaction(employer, board_address, "post_job", ["At the agreed bar", "desc", "solidity", agreed_confidence, 1, int(time.time() * 1000)])
+    jobs = json.loads(call_contract_method(board_address, employer, "get_jobs", [50]))
+    at_bar_job_id = int(jobs[0]["job_id"])
+    assert call_contract_method(board_address, candidate, "check_eligibility", [candidate.address, at_bar_job_id]) is True
+
+    if agreed_confidence < 100:
+        send_transaction(employer, board_address, "post_job", ["One above the agreed bar", "desc", "solidity", agreed_confidence + 1, 1, int(time.time() * 1000)])
+        jobs = json.loads(call_contract_method(board_address, employer, "get_jobs", [50]))
+        above_bar_job_id = int(jobs[0]["job_id"])
+        assert call_contract_method(board_address, candidate, "check_eligibility", [candidate.address, above_bar_job_id]) is False
+
+
+def test_confidence_is_always_within_valid_range(oracle_address, candidate):
+    """The oracle must enforce a 0-100 confidence range regardless of what
+    the underlying model returns."""
+    record = json.loads(call_contract_method(oracle_address, candidate, "get_certification", [candidate.address, "solidity"]))
+    assert 0 <= int(record["confidence"]) <= 100
+
+    record2 = json.loads(call_contract_method(oracle_address, candidate, "get_certification", [candidate.address, "marathon-running"]))
+    assert 0 <= int(record2["confidence"]) <= 100
+
+
+def test_proof_url_cannot_be_claimed_by_a_different_address(oracle_address, candidate, employer):
+    shared_proof_url = "https://github.com/example/shared-repo-proof"
+    first = send_transaction(candidate, oracle_address, "request_certification", ["rust", STRONG_EVIDENCE, shared_proof_url])
+    assert has_success_status(first)
+
+    second = send_transaction(employer, oracle_address, "request_certification", ["rust", STRONG_EVIDENCE, shared_proof_url])
+    assert not has_success_status(second)  # employer cannot claim candidate's already-claimed proof URL
+
+    # The original holder can still re-submit against their own already-claimed proof URL.
+    resubmit = send_transaction(candidate, oracle_address, "request_certification", ["rust", STRONG_EVIDENCE + " Updated.", shared_proof_url])
+    assert has_success_status(resubmit)
 
 
 def test_withdraw_application(oracle_address, board_address, employer, candidate):
