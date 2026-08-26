@@ -54,7 +54,7 @@ async function initHomePage() {
     try {
       const holder = await core.ensureConnected();
       const { oracleAddress } = await core.fetchConfig();
-      await core.writeContract(oracleAddress, 'request_certification', [skill, evidence, proofUrl, Date.now()]);
+      await core.writeContract(oracleAddress, 'request_certification', [skill, evidence, proofUrl]);
       const raw = await core.readWithRetry(() => core.readContract(oracleAddress, 'get_certification', [holder, skill]));
       renderResult(JSON.parse(raw), skill);
       status.textContent = 'Done.';
